@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NCC Zimbabwe — Complaints &amp; Compliments Register</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,450;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#F6F3EA; --paper-raised:#FFFFFF; --ink:#1C231F; --ink-soft:#5B655D;
+    --forest:#1F4D3A; --forest-deep:#153327; --brass:#AD8A4D; --sage:#E4EBE1;
+    --hairline:#DCD5C2; --rule:1px solid var(--hairline);
+    --fb:#3B5EA6; --li:#0F6E5C; --danger:#A23B2E;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; -webkit-font-smoothing:antialiased;}
+  .serif{font-family:'Fraunces',serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  .wrap{max-width:1180px; margin:0 auto; padding:0 32px;}
+
+  header.masthead{border-bottom:2px solid var(--forest); padding:26px 0 20px; display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap;}
+  .eyebrow{text-transform:uppercase; letter-spacing:.14em; font-size:11px; color:var(--forest); font-weight:600; margin:0 0 8px;}
+  h1.title{font-family:'Fraunces',serif; font-size:clamp(26px,3.4vw,36px); line-height:1.05; margin:0 0 8px; font-weight:600; color:var(--forest-deep);}
+  .subtitle{color:var(--ink-soft); font-size:14px; max-width:480px; line-height:1.5; margin:0;}
+  .storage-note{font-size:11.5px; color:var(--ink-soft); display:flex; align-items:center; gap:6px; margin-top:10px;}
+  .storage-note .dot{width:6px; height:6px; border-radius:50%; background:var(--forest);}
+
+  .tabs{display:flex; gap:4px; padding:20px 0 0; border-bottom:var(--rule);}
+  .tab{
+    padding:12px 22px; font-size:14px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+    border-bottom:2px solid transparent; margin-bottom:-1px; font-family:'IBM Plex Sans',sans-serif; background:none; border-top:none; border-left:none; border-right:none;
+  }
+  .tab.active{color:var(--forest-deep); border-bottom-color:var(--forest);}
+  .tab .count-badge{
+    display:inline-block; margin-left:7px; font-family:'IBM Plex Mono',monospace; font-size:11px;
+    background:var(--sage); color:var(--forest-deep); padding:1px 7px; border-radius:20px;
+  }
+
+  section.panel{padding:26px 0 60px;}
+  .toolbar{display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:18px;}
+  .filter-group{display:flex; gap:4px; padding:4px; background:var(--paper-raised); border:var(--rule); border-radius:8px;}
+  .filter-btn{border:none; background:transparent; padding:7px 13px; font-size:12.5px; font-weight:500; color:var(--ink-soft); border-radius:5px; cursor:pointer; font-family:'IBM Plex Sans',sans-serif;}
+  .filter-btn.active{background:var(--forest); color:#fff;}
+  .search-input{border:var(--rule); background:var(--paper-raised); padding:9px 14px; border-radius:8px; font-size:13px; font-family:'IBM Plex Sans',sans-serif; color:var(--ink); min-width:200px;}
+  .search-input:focus{outline:2px solid var(--forest); outline-offset:1px;}
+  .spacer{flex:1;}
+  .btn-primary{
+    background:var(--forest); color:#fff; border:none; padding:10px 18px; border-radius:8px; font-size:13px;
+    font-weight:600; cursor:pointer; font-family:'IBM Plex Sans',sans-serif; display:inline-flex; align-items:center; gap:7px;
+  }
+  .btn-primary:hover{background:var(--forest-deep);}
+  .btn-ghost{
+    background:var(--paper-raised); color:var(--ink); border:var(--rule); padding:10px 16px; border-radius:8px; font-size:13px;
+    font-weight:500; cursor:pointer; font-family:'IBM Plex Sans',sans-serif;
+  }
+
+  .stat-strip{display:grid; grid-template-columns:repeat(4,1fr); border:var(--rule); background:var(--paper-raised); margin-bottom:24px;}
+  .stat-cell{padding:18px 20px; border-right:var(--rule);}
+  .stat-cell:last-child{border-right:none;}
+  .stat-num{font-family:'Fraunces',serif; font-size:28px; font-weight:600; color:var(--forest-deep);}
+  .stat-label{font-size:10.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--ink-soft); margin-top:4px; font-weight:500;}
+
+  .log-head{display:grid; grid-template-columns:90px 92px 1fr 130px 110px 90px; gap:16px; padding:0 6px 10px; border-bottom:2px solid var(--forest); font-size:10.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--forest); font-weight:600;}
+  .log{border-top:none;}
+  .entry{display:grid; grid-template-columns:90px 92px 1fr 130px 110px 90px; gap:16px; align-items:start; padding:14px 6px; border-bottom:var(--rule);}
+  .entry:hover{background:rgba(31,77,58,0.03);}
+  .entry .ref{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--brass); font-weight:500; padding-top:2px;}
+  .entry .date{font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--ink-soft); padding-top:2px;}
+  .entry .client{font-weight:600; font-size:13.5px; margin:0 0 3px;}
+  .entry .quote{font-size:13px; color:var(--ink-soft); margin:0; line-height:1.5;}
+  .source-badge{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft); padding-top:3px;}
+  .dot{width:7px; height:7px; border-radius:50%; flex:0 0 auto;}
+  .dot.fb{background:var(--fb);} .dot.li{background:var(--li);} .dot.other{background:var(--brass);}
+  .pill{font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; padding:4px 8px; border-radius:20px; white-space:nowrap; display:inline-block;}
+  .pill.yes{background:var(--sage); color:var(--forest-deep);}
+  .pill.no{background:#F3E4D6; color:#8A5A2B;}
+  .pill.resolved{background:var(--sage); color:var(--forest-deep);}
+  .pill.pending{background:#F3E4D6; color:#8A5A2B;}
+  .pill.progress{background:#DDE6F3; color:#2F4C74;}
+  .row-actions{display:flex; gap:6px; padding-top:1px;}
+  .icon-btn{border:none; background:none; cursor:pointer; padding:4px; border-radius:5px; color:var(--ink-soft); font-size:14px;}
+  .icon-btn:hover{background:var(--sage); color:var(--forest-deep);}
+  .icon-btn.del:hover{background:#F3E0DC; color:var(--danger);}
+
+  .empty-log{padding:60px 6px; text-align:center; color:var(--ink-soft);}
+  .empty-log .big{font-family:'Fraunces',serif; font-size:18px; color:var(--forest-deep); margin-bottom:6px;}
+
+  /* Modal */
+  .modal-overlay{position:fixed; inset:0; background:rgba(21,51,39,0.35); display:none; align-items:flex-start; justify-content:center; z-index:100; padding:40px 20px; overflow-y:auto;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:var(--paper-raised); border-radius:12px; max-width:620px; width:100%; padding:30px 32px; border:var(--rule);}
+  .modal h3{font-family:'Fraunces',serif; font-size:20px; color:var(--forest-deep); margin:0 0 20px;}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px;}
+  .form-field{display:flex; flex-direction:column; gap:5px;}
+  .form-field.full{grid-column:1/-1;}
+  .form-field label{font-size:11.5px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.04em;}
+  .form-field input, .form-field select, .form-field textarea{
+    border:var(--rule); border-radius:7px; padding:9px 11px; font-size:13.5px; font-family:'IBM Plex Sans',sans-serif;
+    background:var(--paper); color:var(--ink);
+  }
+  .form-field textarea{resize:vertical; min-height:60px; font-family:'IBM Plex Sans',sans-serif;}
+  .form-field input:focus, .form-field select:focus, .form-field textarea:focus{outline:2px solid var(--forest); outline-offset:1px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:24px;}
+  .required-mark{color:var(--danger);}
+
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
+    background:var(--forest-deep); color:#fff; padding:12px 22px; border-radius:8px; font-size:13px;
+    transition:opacity .25s, transform .25s; z-index:200; pointer-events:none;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+
+  footer{border-top:2px solid var(--forest); padding:22px 0 40px; font-size:12px; color:var(--ink-soft);}
+
+  @media (max-width:800px){
+    .wrap{padding:0 16px;}
+    .stat-strip{grid-template-columns:repeat(2,1fr);}
+    .stat-cell:nth-child(2n){border-right:none;}
+    .stat-cell{border-bottom:var(--rule);}
+    .log-head{display:none;}
+    .entry{grid-template-columns:1fr; gap:6px;}
+    .row-actions{padding-top:6px;}
+    .form-grid{grid-template-columns:1fr;}
+    .search-input{width:100%;}
+  }
+  :focus-visible{outline:2px solid var(--forest); outline-offset:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">National Competitiveness Commission · Zimbabwe</p>
+      <h1 class="title">Complaints &amp; Compliments Register</h1>
+      <p class="subtitle">Log, track, and respond to stakeholder feedback — replacing the spreadsheet with a live system.</p>
+      <p class="storage-note"><span class="dot"></span><span id="storageStatus">Loading your register…</span></p>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button class="tab active" id="tabCompliments" role="tab">Compliments <span class="count-badge" id="countCompliments">0</span></button>
+    <button class="tab" id="tabComplaints" role="tab">Complaints <span class="count-badge" id="countComplaints">0</span></button>
+  </nav>
+
+  <!-- COMPLIMENTS PANEL -->
+  <section class="panel" id="panelCompliments">
+    <div class="stat-strip">
+      <div class="stat-cell"><div class="stat-num" id="cTotal">0</div><div class="stat-label">Total Logged</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cRate">0%</div><div class="stat-label">Response Rate</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cThisQ">0</div><div class="stat-label">This Quarter</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cSources">0</div><div class="stat-label">Channels Used</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="filter-group" id="cQuarterFilter">
+        <button class="filter-btn active" data-q="all">All</button>
+        <button class="filter-btn" data-q="1st">Q1</button>
+        <button class="filter-btn" data-q="2nd">Q2</button>
+        <button class="filter-btn" data-q="3rd">Q3</button>
+        <button class="filter-btn" data-q="4th">Q4</button>
+      </div>
+      <div class="filter-group" id="cRespFilter">
+        <button class="filter-btn active" data-r="all">All</button>
+        <button class="filter-btn" data-r="yes">Responded</button>
+        <button class="filter-btn" data-r="no">Pending</button>
+      </div>
+      <input type="text" class="search-input" id="cSearch" placeholder="Search client or keyword…">
+      <div class="spacer"></div>
+      <button class="btn-ghost" id="cExport">Export CSV</button>
+      <button class="btn-primary" id="cAddBtn">+ New Compliment</button>
+    </div>
+    <div class="log-head">
+      <span>Ref</span><span>Date</span><span>Client &amp; Compliment</span><span>Source</span><span>Response</span><span></span>
+    </div>
+    <div class="log" id="cLog"></div>
+  </section>
+
+  <!-- COMPLAINTS PANEL -->
+  <section class="panel" id="panelComplaints" style="display:none;">
+    <div class="stat-strip">
+      <div class="stat-cell"><div class="stat-num" id="xTotal">0</div><div class="stat-label">Total Logged</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xResolved">0</div><div class="stat-label">Resolved</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xPending">0</div><div class="stat-label">Open / Pending</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xThisQ">0</div><div class="stat-label">This Quarter</div></div>
+    </div>
+    <div class="toolbar">
+      <div class="filter-group" id="xQuarterFilter">
+        <button class="filter-btn active" data-q="all">All</button>
+        <button class="filter-btn" data-q="1st">Q1</button>
+        <button class="filter-btn" data-q="2nd">Q2</button>
+        <button class="filter-btn" data-q="3rd">Q3</button>
+        <button class="filter-btn" data-q="4th">Q4</button>
+      </div>
+      <div class="filter-group" id="xStatusFilter">
+        <button class="filter-btn active" data-s="all">All</button>
+        <button class="filter-btn" data-s="Resolved">Resolved</button>
+        <button class="filter-btn" data-s="In Progress">In Progress</button>
+        <button class="filter-btn" data-s="Pending">Pending</button>
+      </div>
+      <input type="text" class="search-input" id="xSearch" placeholder="Search client or keyword…">
+      <div class="spacer"></div>
+      <button class="btn-ghost" id="xExport">Export CSV</button>
+      <button class="btn-primary" id="xAddBtn">+ New Complaint</button>
+    </div>
+    <div class="log-head" style="grid-template-columns:90px 92px 1fr 130px 110px 90px;">
+      <span>Ref</span><span>Date</span><span>Client &amp; Issue</span><span>Assignee</span><span>Status</span><span></span>
+    </div>
+    <div class="log" id="xLog"></div>
+  </section>
+
+  <footer>
+    <p>Stored privately to your account &mdash; only visible when you're signed in. Data persists automatically as you add, edit, or remove entries.</p>
+  </footer>
+</div>
+
+<!-- Compliment Modal -->
+<div class="modal-overlay" id="cModalOverlay">
+  <div class="modal">
+    <h3 id="cModalTitle">New Compliment</h3>
+    <div class="form-grid">
+      <div class="form-field"><label>Date <span class="required-mark">*</span></label><input type="date" id="f_c_date"></div>
+      <div class="form-field"><label>Client Name <span class="required-mark">*</span></label><input type="text" id="f_c_client" placeholder="e.g. Jane Moyo"></div>
+      <div class="form-field full"><label>Compliment <span class="required-mark">*</span></label><textarea id="f_c_text" placeholder="What did they say?"></textarea></div>
+      <div class="form-field">
+        <label>Source</label>
+        <select id="f_c_source"><option>Facebook</option><option>LinkedIn</option><option>Email</option><option>Phone</option><option>In Person</option><option>Other</option></select>
+      </div>
+      <div class="form-field"><label>Forwarded To</label><input type="text" id="f_c_forwarded" placeholder="e.g. Communications"></div>
+      <div class="form-field full"><label>Courtesy Response</label><textarea id="f_c_response" placeholder="Response sent, if any"></textarea></div>
+      <div class="form-field"><label>Date of Response</label><input type="date" id="f_c_response_date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="cCancel">Cancel</button>
+      <button class="btn-primary" id="cSave">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complaint Modal -->
+<div class="modal-overlay" id="xModalOverlay">
+  <div class="modal">
+    <h3 id="xModalTitle">New Complaint</h3>
+    <div class="form-grid">
+      <div class="form-field"><label>Date <span class="required-mark">*</span></label><input type="date" id="f_x_date"></div>
+      <div class="form-field"><label>Client Name <span class="required-mark">*</span></label><input type="text" id="f_x_client" placeholder="e.g. John Chirwa"></div>
+      <div class="form-field full"><label>Issue / Complaint <span class="required-mark">*</span></label><textarea id="f_x_text" placeholder="Describe the complaint"></textarea></div>
+      <div class="form-field">
+        <label>Source</label>
+        <select id="f_x_source"><option>Facebook</option><option>LinkedIn</option><option>Email</option><option>Phone</option><option>In Person</option><option>Other</option></select>
+      </div>
+      <div class="form-field"><label>Assignee</label><input type="text" id="f_x_assignee" placeholder="e.g. Communications & M&E"></div>
+      <div class="form-field full"><label>Initial Response</label><textarea id="f_x_response" placeholder="Initial response given"></textarea></div>
+      <div class="form-field full"><label>Corrective Action</label><textarea id="f_x_action" placeholder="What was done to resolve it"></textarea></div>
+      <div class="form-field">
+        <label>Status</label>
+        <select id="f_x_status"><option>Pending</option><option>In Progress</option><option>Resolved</option></select>
+      </div>
+      <div class="form-field"><label>Date Resolved / Updated</label><input type="date" id="f_x_response_date"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="xCancel">Cancel</button>
+      <button class="btn-primary" id="xSave">Save Entry</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const STORAGE_KEY_COMPLIMENTS = 'ncc-register:compliments';
+const STORAGE_KEY_COMPLAINTS = 'ncc-register:complaints';
+const STORAGE_KEY_SEQ = 'ncc-register:sequences';
+
+let compliments = [];
+let complaints = [];
+let seq = { compliment: 0, complaint: 0 };
+let editingId = null; // for compliments modal
+let editingXId = null; // for complaints modal
+let cFilters = { q: 'all', r: 'all', search: '' };
+let xFilters = { q: 'all', s: 'all', search: '' };
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2200);
+}
+
+function quarterFromDate(dateStr){
+  if(!dateStr) return null;
+  const month = parseInt(dateStr.slice(5,7),10);
+  if(month<=3) return '1st';
+  if(month<=6) return '2nd';
+  if(month<=9) return '3rd';
+  return '4th';
+}
+
+function fmtDate(iso){
+  if(!iso) return '—';
+  const d = new Date(iso+'T00:00:00');
+  return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+}
+
+function nextRef(type){
+  seq[type] = (seq[type]||0)+1;
+  const prefix = type==='compliment' ? 'CO' : 'CX';
+  return `${prefix}-${String(seq[type]).padStart(3,'0')}`;
+}
+
+async function loadAll(){
+  const statusEl = document.getElementById('storageStatus');
+  try{
+    try{
+      const r = await window.storage.get(STORAGE_KEY_COMPLIMENTS, false);
+      compliments = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ compliments = []; }
+    try{
+      const r = await window.storage.get(STORAGE_KEY_COMPLAINTS, false);
+      complaints = r && r.value ? JSON.parse(r.value) : [];
+    }catch(e){ complaints = []; }
+    try{
+      const r = await window.storage.get(STORAGE_KEY_SEQ, false);
+      seq = r && r.value ? JSON.parse(r.value) : { compliment:0, complaint:0 };
+    }catch(e){ seq = { compliment:0, complaint:0 }; }
+    statusEl.textContent = 'Private register — saved to your account';
+  }catch(err){
+    console.error('Load error', err);
+    statusEl.textContent = 'Could not load saved data — starting fresh';
+  }
+  renderCompliments();
+  renderComplaints();
+}
+
+async function persist(key, value){
+  try{
+    const result = await window.storage.set(key, JSON.stringify(value), false);
+    if(!result) console.error('Storage set returned null for', key);
+    return !!result;
+  }catch(err){
+    console.error('Storage error', err);
+    showToast('Could not save — please try again');
+    return false;
+  }
+}
+
+async function saveCompliments(){ await persist(STORAGE_KEY_COMPLIMENTS, compliments); }
+async function saveComplaints(){ await persist(STORAGE_KEY_COMPLAINTS, complaints); }
+async function saveSeq(){ await persist(STORAGE_KEY_SEQ, seq); }
+
+// ---------- TABS ----------
+document.getElementById('tabCompliments').addEventListener('click', ()=>{
+  document.getElementById('tabCompliments').classList.add('active');
+  document.getElementById('tabComplaints').classList.remove('active');
+  document.getElementById('panelCompliments').style.display = '';
+  document.getElementById('panelComplaints').style.display = 'none';
+});
+document.getElementById('tabComplaints').addEventListener('click', ()=>{
+  document.getElementById('tabComplaints').classList.add('active');
+  document.getElementById('tabCompliments').classList.remove('active');
+  document.getElementById('panelComplaints').style.display = '';
+  document.getElementById('panelCompliments').style.display = 'none';
+});
+
+// ---------- COMPLIMENTS RENDER ----------
+function renderCompliments(){
+  document.getElementById('countCompliments').textContent = compliments.length;
+  const total = compliments.length;
+  const responded = compliments.filter(d=>d.response && d.response.trim()).length;
+  const rate = total ? Math.round((responded/total)*100) : 0;
+  const sources = new Set(compliments.map(d=>d.source).filter(Boolean));
+  const currentQ = quarterFromDate(new Date().toISOString().slice(0,10));
+  const thisQCount = compliments.filter(d=>d.quarter===currentQ).length;
+
+  document.getElementById('cTotal').textContent = total;
+  document.getElementById('cRate').textContent = rate + '%';
+  document.getElementById('cThisQ').textContent = thisQCount;
+  document.getElementById('cSources').textContent = sources.size;
+
+  const filtered = compliments.filter(d=>{
+    if(cFilters.q!=='all' && d.quarter!==cFilters.q) return false;
+    if(cFilters.r==='yes' && !(d.response && d.response.trim())) return false;
+    if(cFilters.r==='no' && (d.response && d.response.trim())) return false;
+    if(cFilters.search){
+      const hay = ((d.client||'')+' '+(d.text||'')).toLowerCase();
+      if(!hay.includes(cFilters.search)) return false;
+    }
+    return true;
+  }).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+
+  const logEl = document.getElementById('cLog');
+  logEl.innerHTML = '';
+  if(filtered.length===0){
+    logEl.innerHTML = `<div class="empty-log"><div class="big">${total===0 ? 'No compliments logged yet' : 'No entries match these filters'}</div>${total===0 ? 'Click "New Compliment" to add your first entry.' : 'Try clearing a filter or the search box.'}</div>`;
+    return;
+  }
+  filtered.forEach(d=>{
+    const dotClass = d.source==='Facebook' ? 'fb' : (d.source==='LinkedIn' ? 'li' : 'other');
+    const hasResp = d.response && d.response.trim();
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.innerHTML = `
+      <span class="ref">${d.ref}</span>
+      <span class="date">${fmtDate(d.date)}</span>
+      <div><p class="client">${escapeHtml(d.client)}</p><p class="quote">${escapeHtml((d.text||'').slice(0,160))}${(d.text||'').length>160?'…':''}</p></div>
+      <span class="source-badge"><span class="dot ${dotClass}"></span>${d.source||'—'}</span>
+      <span class="pill ${hasResp?'yes':'no'}">${hasResp?'Responded':'Pending'}</span>
+      <span class="row-actions">
+        <button class="icon-btn edit" title="Edit" data-id="${d.id}">✎</button>
+        <button class="icon-btn del" title="Delete" data-id="${d.id}">🗑</button>
+      </span>
+    `;
+    logEl.appendChild(row);
+  });
+  logEl.querySelectorAll('.icon-btn.edit').forEach(b=>b.addEventListener('click', ()=>openComplimentModal(b.dataset.id)));
+  logEl.querySelectorAll('.icon-btn.del').forEach(b=>b.addEventListener('click', ()=>deleteCompliment(b.dataset.id)));
+}
+
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s || '';
+  return div.innerHTML;
+}
+
+// filters
+document.getElementById('cQuarterFilter').addEventListener('click', e=>{
+  const b = e.target.closest('.filter-btn'); if(!b) return;
+  document.querySelectorAll('#cQuarterFilter .filter-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); cFilters.q = b.dataset.q; renderCompliments();
+});
+document.getElementById('cRespFilter').addEventListener('click', e=>{
+  const b = e.target.closest('.filter-btn'); if(!b) return;
+  document.querySelectorAll('#cRespFilter .filter-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); cFilters.r = b.dataset.r; renderCompliments();
+});
+document.getElementById('cSearch').addEventListener('input', e=>{
+  cFilters.search = e.target.value.toLowerCase(); renderCompliments();
+});
+
+// modal
+function openComplimentModal(id){
+  editingId = id || null;
+  const modal = document.getElementById('cModalOverlay');
+  if(id){
+    const d = compliments.find(x=>x.id===id);
+    document.getElementById('cModalTitle').textContent = 'Edit Compliment';
+    document.getElementById('f_c_date').value = d.date || '';
+    document.getElementById('f_c_client').value = d.client || '';
+    document.getElementById('f_c_text').value = d.text || '';
+    document.getElementById('f_c_source').value = d.source || 'Facebook';
+    document.getElementById('f_c_forwarded').value = d.forwarded || '';
+    document.getElementById('f_c_response').value = d.response || '';
+    document.getElementById('f_c_response_date').value = d.response_date || '';
+  }else{
+    document.getElementById('cModalTitle').textContent = 'New Compliment';
+    ['f_c_date','f_c_client','f_c_text','f_c_forwarded','f_c_response','f_c_response_date'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f_c_source').value = 'Facebook';
+    document.getElementById('f_c_date').value = new Date().toISOString().slice(0,10);
+  }
+  modal.classList.add('open');
+}
+document.getElementById('cAddBtn').addEventListener('click', ()=>openComplimentModal(null));
+document.getElementById('cCancel').addEventListener('click', ()=>document.getElementById('cModalOverlay').classList.remove('open'));
+document.getElementById('cModalOverlay').addEventListener('click', e=>{ if(e.target.id==='cModalOverlay') e.target.classList.remove('open'); });
+
+document.getElementById('cSave').addEventListener('click', async ()=>{
+  const date = document.getElementById('f_c_date').value;
+  const client = document.getElementById('f_c_client').value.trim();
+  const text = document.getElementById('f_c_text').value.trim();
+  if(!date || !client || !text){ showToast('Please fill in date, client name, and compliment text'); return; }
+  const record = {
+    id: editingId || 'c_' + Date.now(),
+    ref: editingId ? compliments.find(x=>x.id===editingId).ref : nextRef('compliment'),
+    date, quarter: quarterFromDate(date), client, text,
+    source: document.getElementById('f_c_source').value,
+    forwarded: document.getElementById('f_c_forwarded').value.trim(),
+    response: document.getElementById('f_c_response').value.trim(),
+    response_date: document.getElementById('f_c_response_date').value
+  };
+  if(editingId){
+    const idx = compliments.findIndex(x=>x.id===editingId);
+    compliments[idx] = record;
+  }else{
+    compliments.push(record);
+    await saveSeq();
+  }
+  await saveCompliments();
+  document.getElementById('cModalOverlay').classList.remove('open');
+  renderCompliments();
+  showToast(editingId ? 'Compliment updated' : 'Compliment added');
+});
+
+async function deleteCompliment(id){
+  if(!confirm('Delete this compliment entry? This cannot be undone.')) return;
+  compliments = compliments.filter(x=>x.id!==id);
+  await saveCompliments();
+  renderCompliments();
+  showToast('Entry deleted');
+}
+
+document.getElementById('cExport').addEventListener('click', ()=>exportCsv(compliments,
+  ['ref','date','quarter','client','text','source','forwarded','response','response_date'],
+  ['Ref','Date','Quarter','Client','Compliment','Source','Forwarded To','Response','Response Date'],
+  'compliments.csv'));
+
+// ---------- COMPLAINTS RENDER ----------
+function renderComplaints(){
+  document.getElementById('countComplaints').textContent = complaints.length;
+  const total = complaints.length;
+  const resolved = complaints.filter(d=>d.status==='Resolved').length;
+  const pending = complaints.filter(d=>d.status!=='Resolved').length;
+  const currentQ = quarterFromDate(new Date().toISOString().slice(0,10));
+  const thisQCount = complaints.filter(d=>d.quarter===currentQ).length;
+
+  document.getElementById('xTotal').textContent = total;
+  document.getElementById('xResolved').textContent = resolved;
+  document.getElementById('xPending').textContent = pending;
+  document.getElementById('xThisQ').textContent = thisQCount;
+
+  const filtered = complaints.filter(d=>{
+    if(xFilters.q!=='all' && d.quarter!==xFilters.q) return false;
+    if(xFilters.s!=='all' && d.status!==xFilters.s) return false;
+    if(xFilters.search){
+      const hay = ((d.client||'')+' '+(d.text||'')).toLowerCase();
+      if(!hay.includes(xFilters.search)) return false;
+    }
+    return true;
+  }).sort((a,b)=> (b.date||'').localeCompare(a.date||''));
+
+  const logEl = document.getElementById('xLog');
+  logEl.innerHTML = '';
+  if(filtered.length===0){
+    logEl.innerHTML = `<div class="empty-log"><div class="big">${total===0 ? 'No complaints logged yet' : 'No entries match these filters'}</div>${total===0 ? 'Click "New Complaint" to add your first entry.' : 'Try clearing a filter or the search box.'}</div>`;
+    return;
+  }
+  filtered.forEach(d=>{
+    const statusClass = d.status==='Resolved' ? 'resolved' : (d.status==='In Progress' ? 'progress' : 'pending');
+    const row = document.createElement('div');
+    row.className = 'entry';
+    row.style.gridTemplateColumns = '90px 92px 1fr 130px 110px 90px';
+    row.innerHTML = `
+      <span class="ref">${d.ref}</span>
+      <span class="date">${fmtDate(d.date)}</span>
+      <div><p class="client">${escapeHtml(d.client)}</p><p class="quote">${escapeHtml((d.text||'').slice(0,160))}${(d.text||'').length>160?'…':''}</p></div>
+      <span class="source-badge">${escapeHtml(d.assignee || '—')}</span>
+      <span class="pill ${statusClass}">${d.status}</span>
+      <span class="row-actions">
+        <button class="icon-btn edit" title="Edit" data-id="${d.id}">✎</button>
+        <button class="icon-btn del" title="Delete" data-id="${d.id}">🗑</button>
+      </span>
+    `;
+    logEl.appendChild(row);
+  });
+  logEl.querySelectorAll('.icon-btn.edit').forEach(b=>b.addEventListener('click', ()=>openComplaintModal(b.dataset.id)));
+  logEl.querySelectorAll('.icon-btn.del').forEach(b=>b.addEventListener('click', ()=>deleteComplaint(b.dataset.id)));
+}
+
+document.getElementById('xQuarterFilter').addEventListener('click', e=>{
+  const b = e.target.closest('.filter-btn'); if(!b) return;
+  document.querySelectorAll('#xQuarterFilter .filter-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); xFilters.q = b.dataset.q; renderComplaints();
+});
+document.getElementById('xStatusFilter').addEventListener('click', e=>{
+  const b = e.target.closest('.filter-btn'); if(!b) return;
+  document.querySelectorAll('#xStatusFilter .filter-btn').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); xFilters.s = b.dataset.s; renderComplaints();
+});
+document.getElementById('xSearch').addEventListener('input', e=>{
+  xFilters.search = e.target.value.toLowerCase(); renderComplaints();
+});
+
+function openComplaintModal(id){
+  editingXId = id || null;
+  const modal = document.getElementById('xModalOverlay');
+  if(id){
+    const d = complaints.find(x=>x.id===id);
+    document.getElementById('xModalTitle').textContent = 'Edit Complaint';
+    document.getElementById('f_x_date').value = d.date || '';
+    document.getElementById('f_x_client').value = d.client || '';
+    document.getElementById('f_x_text').value = d.text || '';
+    document.getElementById('f_x_source').value = d.source || 'Facebook';
+    document.getElementById('f_x_assignee').value = d.assignee || '';
+    document.getElementById('f_x_response').value = d.response || '';
+    document.getElementById('f_x_action').value = d.action || '';
+    document.getElementById('f_x_status').value = d.status || 'Pending';
+    document.getElementById('f_x_response_date').value = d.response_date || '';
+  }else{
+    document.getElementById('xModalTitle').textContent = 'New Complaint';
+    ['f_x_date','f_x_client','f_x_text','f_x_assignee','f_x_response','f_x_action','f_x_response_date'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f_x_source').value = 'Facebook';
+    document.getElementById('f_x_status').value = 'Pending';
+    document.getElementById('f_x_date').value = new Date().toISOString().slice(0,10);
+  }
+  modal.classList.add('open');
+}
+document.getElementById('xAddBtn').addEventListener('click', ()=>openComplaintModal(null));
+document.getElementById('xCancel').addEventListener('click', ()=>document.getElementById('xModalOverlay').classList.remove('open'));
+document.getElementById('xModalOverlay').addEventListener('click', e=>{ if(e.target.id==='xModalOverlay') e.target.classList.remove('open'); });
+
+document.getElementById('xSave').addEventListener('click', async ()=>{
+  const date = document.getElementById('f_x_date').value;
+  const client = document.getElementById('f_x_client').value.trim();
+  const text = document.getElementById('f_x_text').value.trim();
+  if(!date || !client || !text){ showToast('Please fill in date, client name, and issue description'); return; }
+  const record = {
+    id: editingXId || 'x_' + Date.now(),
+    ref: editingXId ? complaints.find(x=>x.id===editingXId).ref : nextRef('complaint'),
+    date, quarter: quarterFromDate(date), client, text,
+    source: document.getElementById('f_x_source').value,
+    assignee: document.getElementById('f_x_assignee').value.trim(),
+    response: document.getElementById('f_x_response').value.trim(),
+    action: document.getElementById('f_x_action').value.trim(),
+    status: document.getElementById('f_x_status').value,
+    response_date: document.getElementById('f_x_response_date').value
+  };
+  if(editingXId){
+    const idx = complaints.findIndex(x=>x.id===editingXId);
+    complaints[idx] = record;
+  }else{
+    complaints.push(record);
+    await saveSeq();
+  }
+  await saveComplaints();
+  document.getElementById('xModalOverlay').classList.remove('open');
+  renderComplaints();
+  showToast(editingXId ? 'Complaint updated' : 'Complaint added');
+});
+
+async function deleteComplaint(id){
+  if(!confirm('Delete this complaint entry? This cannot be undone.')) return;
+  complaints = complaints.filter(x=>x.id!==id);
+  await saveComplaints();
+  renderComplaints();
+  showToast('Entry deleted');
+}
+
+document.getElementById('xExport').addEventListener('click', ()=>exportCsv(complaints,
+  ['ref','date','quarter','client','text','source','assignee','response','action','status','response_date'],
+  ['Ref','Date','Quarter','Client','Issue','Source','Assignee','Initial Response','Corrective Action','Status','Date Resolved'],
+  'complaints.csv'));
+
+function exportCsv(rows, fields, headers, filename){
+  if(rows.length===0){ showToast('Nothing to export yet'); return; }
+  const csvRows = [headers.join(',')];
+  rows.forEach(r=>{
+    const line = fields.map(f=>{
+      let v = (r[f] ?? '').toString().replace(/"/g,'""');
+      return `"${v}"`;
+    }).join(',');
+    csvRows.push(line);
+  });
+  const blob = new Blob([csvRows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('CSV downloaded');
+}
+
+loadAll();
+</script>
+</body>
+</html>
