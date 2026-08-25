@@ -1,19 +1,11 @@
 <?php
-// index.php - NCC Zimbabwe Complaints & Compliments Register with MySQL
+require_once __DIR__ . '/config.php';
 
-// Database configuration
-$db_host = 'localhost';
-$db_name = 'ncc_feedback_db';
-$db_user = 'root';  // Change this to your database username
-$db_pass = '';  // Change this to your database password
-
-try {
-    $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-} catch(PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
+if (!isLoggedIn()) {
+  redirect('login.php');
 }
+
+$pdo = getDB();
 
 // Helper functions
 function quarterFromDate($dateStr) {
@@ -51,6 +43,11 @@ function generateRef($type, $pdo) {
     return $prefix . '-' . str_pad($seq, 3, '0', STR_PAD_LEFT);
 }
 
+  function nullableDate($value) {
+    $value = trim((string) $value);
+    return $value !== '' ? $value : null;
+  }
+
 // Handle POST requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -82,7 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_POST['source'] ?? 'Facebook',
                         trim($_POST['forwarded'] ?? ''),
                         trim($_POST['response'] ?? ''),
-                        $_POST['response_date'] ?? '',
+                        nullableDate($_POST['response_date'] ?? ''),
                         $id
                     ]);
                     $response = ['success' => true, 'message' => 'Compliment updated successfully!'];
@@ -103,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $_POST['source'] ?? 'Facebook',
                         trim($_POST['forwarded'] ?? ''),
                         trim($_POST['response'] ?? ''),
-                        $_POST['response_date'] ?? ''
+                        nullableDate($_POST['response_date'] ?? '')
                     ]);
                     $response = ['success' => true, 'message' => 'Compliment added successfully! Reference: ' . $ref];
                 }
@@ -162,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         trim($_POST['response'] ?? ''),
                         trim($_POST['action_item'] ?? ''),
                         $_POST['status'] ?? 'Pending',
-                        $_POST['response_date'] ?? '',
+                        nullableDate($_POST['response_date'] ?? ''),
                         $id
                     ]);
                     $response = ['success' => true, 'message' => 'Complaint updated successfully!'];
@@ -185,7 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         trim($_POST['response'] ?? ''),
                         trim($_POST['action_item'] ?? ''),
                         $_POST['status'] ?? 'Pending',
-                        $_POST['response_date'] ?? ''
+                        nullableDate($_POST['response_date'] ?? '')
                     ]);
                     $response = ['success' => true, 'message' => 'Complaint added successfully! Reference: ' . $ref];
                 }
