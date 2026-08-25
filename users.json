@@ -1,0 +1,45 @@
+<?php
+require_once 'config.php';
+
+// This script migrates users from users.json to the database
+$usersFile = __DIR__ . '/users.json';
+
+if (!file_exists($usersFile)) {
+    die("users.json file not found.");
+}
+
+$users = json_decode(file_get_contents($usersFile), true);
+if (!$users || !is_array($users)) {
+    die("Invalid users.json format.");
+}
+
+$pdo = getDB();
+$count = 0;
+
+foreach ($users as $user) {
+    try {
+        // Check if user already exists
+        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
+        $stmt->execute([$user['email']]);
+        
+        if (!$stmt->fetch()) {
+            // Insert user - note: passwords are already hashed
+            $stmt = $pdo->prepare("INSERT INTO users (name, email, password_hash, role) VALUES (?, ?, ?, ?)");
+            $stmt->execute([
+                $user['name'],
+                $user['email'],
+                $user['passwordHash'],
+                'user'
+            ]);
+            $count++;
+            echo "Migrated: {$user['email']}<br>";
+        } else {
+            echo "Skipped (already exists): {$user['email']}<br>";
+        }
+    } catch (PDOException $e) {
+        echo "Error migrating {$user['email']}: " . $e->getMessage() . "<br>";
+    }
+}
+
+echo "<br><strong>Migration complete! $count users migrated.</strong>";
+?>

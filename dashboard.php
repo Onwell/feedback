@@ -1,3 +1,250 @@
+<?php
+require_once __DIR__ . '/config.php';
+
+if (!isLoggedIn()) {
+  redirect('login.php');
+}
+
+$pdo = getDB();
+
+// Helper functions
+function quarterFromDate($dateStr) {
+    if (!$dateStr) return null;
+    $month = intval(substr($dateStr, 5, 2));
+    if ($month <= 3) return '1st';
+    if ($month <= 6) return '2nd';
+    if ($month <= 9) return '3rd';
+    return '4th';
+}
+
+function fmtDate($iso) {
+    if (!$iso) return '—';
+    $d = new DateTime($iso);
+    return $d->format('d M Y');
+}
+
+function escapeHtml($s) {
+    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+function generateRef($type, $pdo) {
+    $prefix = $type === 'compliment' ? 'CO' : 'CX';
+    
+    // Get current sequence value
+    $stmt = $pdo->prepare("SELECT value FROM sequences WHERE type = ? FOR UPDATE");
+    $stmt->execute([$type]);
+    $row = $stmt->fetch();
+    $seq = $row ? $row['value'] + 1 : 1;
+    
+    // Update sequence
+    $stmt = $pdo->prepare("UPDATE sequences SET value = ? WHERE type = ?");
+    $stmt->execute([$seq, $type]);
+    
+    return $prefix . '-' . str_pad($seq, 3, '0', STR_PAD_LEFT);
+}
+
+  function nullableDate($value) {
+    $value = trim((string) $value);
+    return $value !== '' ? $value : null;
+  }
+
+// Handle POST requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $action = $_POST['action'] ?? '';
+    $response = ['success' => false, 'message' => 'Invalid action'];
+    
+    // Compliment operations
+    if ($action === 'add_compliment' || $action === 'edit_compliment') {
+        $date = $_POST['date'] ?? '';
+        $client = trim($_POST['client'] ?? '');
+        $text = trim($_POST['text'] ?? '');
+        
+        if ($date && $client && $text) {
+            try {
+                $pdo->beginTransaction();
+                
+                if ($action === 'edit_compliment') {
+                    $id = $_POST['id'] ?? '';
+                    $ref = $_POST['ref'] ?? '';
+                    
+                    $stmt = $pdo->prepare("UPDATE compliments SET 
+                        date = ?, quarter = ?, client = ?, text = ?, 
+                        source = ?, forwarded = ?, response = ?, response_date = ? 
+                        WHERE id = ?");
+                    $stmt->execute([
+                        $date,
+                        quarterFromDate($date),
+                        $client,
+                        $text,
+                        $_POST['source'] ?? 'Facebook',
+                        trim($_POST['forwarded'] ?? ''),
+                        trim($_POST['response'] ?? ''),
+                        nullableDate($_POST['response_date'] ?? ''),
+                        $id
+                    ]);
+                    $response = ['success' => true, 'message' => 'Compliment updated successfully!'];
+                } else {
+                    $id = 'c_' . time() . '_' . rand(100, 999);
+                    $ref = generateRef('compliment', $pdo);
+                    
+                    $stmt = $pdo->prepare("INSERT INTO compliments 
+                        (id, ref, date, quarter, client, text, source, forwarded, response, response_date) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $id,
+                        $ref,
+                        $date,
+                        quarterFromDate($date),
+                        $client,
+                        $text,
+                        $_POST['source'] ?? 'Facebook',
+                        trim($_POST['forwarded'] ?? ''),
+                        trim($_POST['response'] ?? ''),
+                        nullableDate($_POST['response_date'] ?? '')
+                    ]);
+                    $response = ['success' => true, 'message' => 'Compliment added successfully! Reference: ' . $ref];
+                }
+                
+                $pdo->commit();
+            } catch(PDOException $e) {
+                $pdo->rollBack();
+                $response = ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+            }
+        } else {
+            $response = ['success' => false, 'message' => 'Please fill in all required fields: Date, Client Name, and Compliment text.'];
+        }
+        echo json_encode($response);
+        exit;
+    }
+    
+    if ($action === 'delete_compliment') {
+        $id = $_POST['id'] ?? '';
+        try {
+            $stmt = $pdo->prepare("DELETE FROM compliments WHERE id = ?");
+            $stmt->execute([$id]);
+            $response = ['success' => true, 'message' => 'Compliment deleted successfully!'];
+        } catch(PDOException $e) {
+            $response = ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+        echo json_encode($response);
+        exit;
+    }
+    
+    // Complaint operations
+    if ($action === 'add_complaint' || $action === 'edit_complaint') {
+        $date = $_POST['date'] ?? '';
+        $client = trim($_POST['client'] ?? '');
+        $text = trim($_POST['text'] ?? '');
+        
+        if ($date && $client && $text) {
+            try {
+                $pdo->beginTransaction();
+                
+                if ($action === 'edit_complaint') {
+                    $id = $_POST['id'] ?? '';
+                    $ref = $_POST['ref'] ?? '';
+                    
+                    $stmt = $pdo->prepare("UPDATE complaints SET 
+                        date = ?, quarter = ?, client = ?, text = ?, 
+                        source = ?, assignee = ?, response = ?, action = ?, 
+                        status = ?, response_date = ? 
+                        WHERE id = ?");
+                    $stmt->execute([
+                        $date,
+                        quarterFromDate($date),
+                        $client,
+                        $text,
+                        $_POST['source'] ?? 'Facebook',
+                        trim($_POST['assignee'] ?? ''),
+                        trim($_POST['response'] ?? ''),
+                        trim($_POST['action_item'] ?? ''),
+                        $_POST['status'] ?? 'Pending',
+                        nullableDate($_POST['response_date'] ?? ''),
+                        $id
+                    ]);
+                    $response = ['success' => true, 'message' => 'Complaint updated successfully!'];
+                } else {
+                    $id = 'x_' . time() . '_' . rand(100, 999);
+                    $ref = generateRef('complaint', $pdo);
+                    
+                    $stmt = $pdo->prepare("INSERT INTO complaints 
+                        (id, ref, date, quarter, client, text, source, assignee, response, action, status, response_date) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                    $stmt->execute([
+                        $id,
+                        $ref,
+                        $date,
+                        quarterFromDate($date),
+                        $client,
+                        $text,
+                        $_POST['source'] ?? 'Facebook',
+                        trim($_POST['assignee'] ?? ''),
+                        trim($_POST['response'] ?? ''),
+                        trim($_POST['action_item'] ?? ''),
+                        $_POST['status'] ?? 'Pending',
+                        nullableDate($_POST['response_date'] ?? '')
+                    ]);
+                    $response = ['success' => true, 'message' => 'Complaint added successfully! Reference: ' . $ref];
+                }
+                
+                $pdo->commit();
+            } catch(PDOException $e) {
+                $pdo->rollBack();
+                $response = ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+            }
+        } else {
+            $response = ['success' => false, 'message' => 'Please fill in all required fields: Date, Client Name, and Issue description.'];
+        }
+        echo json_encode($response);
+        exit;
+    }
+    
+    if ($action === 'delete_complaint') {
+        $id = $_POST['id'] ?? '';
+        try {
+            $stmt = $pdo->prepare("DELETE FROM complaints WHERE id = ?");
+            $stmt->execute([$id]);
+            $response = ['success' => true, 'message' => 'Complaint deleted successfully!'];
+        } catch(PDOException $e) {
+            $response = ['success' => false, 'message' => 'Database error: ' . $e->getMessage()];
+        }
+        echo json_encode($response);
+        exit;
+    }
+}
+
+// Load data from database
+function loadCompliments($pdo) {
+    $stmt = $pdo->query("SELECT * FROM compliments ORDER BY date DESC, created_at DESC");
+    return $stmt->fetchAll();
+}
+
+function loadComplaints($pdo) {
+    $stmt = $pdo->query("SELECT * FROM complaints ORDER BY date DESC, created_at DESC");
+    return $stmt->fetchAll();
+}
+
+$compliments = loadCompliments($pdo);
+$complaints = loadComplaints($pdo);
+
+// Get counts for display
+$complimentCount = count($compliments);
+$complaintCount = count($complaints);
+
+// Calculate stats
+$responded = array_filter($compliments, function($c) { return isset($c['response']) && trim($c['response']); });
+$responseRate = $complimentCount ? round((count($responded)/$complimentCount)*100) : 0;
+
+$resolved = array_filter($complaints, function($c) { return isset($c['status']) && $c['status'] === 'Resolved'; });
+$pending = array_filter($complaints, function($c) { return !isset($c['status']) || $c['status'] !== 'Resolved'; });
+
+$currentQ = quarterFromDate(date('Y-m-d'));
+$complimentsThisQ = array_filter($compliments, function($c) use ($currentQ) { return isset($c['quarter']) && $c['quarter'] === $currentQ; });
+$complaintsThisQ = array_filter($complaints, function($c) use ($currentQ) { return isset($c['quarter']) && $c['quarter'] === $currentQ; });
+
+$sources = array_unique(array_column($compliments, 'source'));
+$sourceCount = count(array_filter($sources));
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,6 +259,7 @@
     --forest:#1F4D3A; --forest-deep:#153327; --brass:#AD8A4D; --sage:#E4EBE1;
     --hairline:#DCD5C2; --rule:1px solid var(--hairline);
     --fb:#3B5EA6; --li:#0F6E5C; --danger:#A23B2E;
+    --success:#2E7D5E;
   }
   *{box-sizing:border-box;}
   body{margin:0; background:var(--paper); color:var(--ink); font-family:'IBM Plex Sans',sans-serif; -webkit-font-smoothing:antialiased;}
@@ -106,8 +354,20 @@
 
   .toast{
     position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(20px); opacity:0;
-    background:var(--forest-deep); color:#fff; padding:12px 22px; border-radius:8px; font-size:13px;
+    padding:12px 22px; border-radius:8px; font-size:13px;
     transition:opacity .25s, transform .25s; z-index:200; pointer-events:none;
+    max-width:90%;
+    text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,0.15);
+  }
+  .toast.success{
+    background:var(--success); color:#fff;
+  }
+  .toast.error{
+    background:var(--danger); color:#fff;
+  }
+  .toast.info{
+    background:var(--forest-deep); color:#fff;
   }
   .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
 
@@ -134,22 +394,22 @@
       <p class="eyebrow">National Competitiveness Commission · Zimbabwe</p>
       <h1 class="title">Complaints &amp; Compliments Register</h1>
       <p class="subtitle">Log, track, and respond to stakeholder feedback — replacing the spreadsheet with a live system.</p>
-      <p class="storage-note"><span class="dot"></span><span id="storageStatus">Loading your register…</span></p>
+      <p class="storage-note"><span class="dot"></span><span id="storageStatus">Connected to MySQL database — <?php echo $complimentCount + $complaintCount; ?> entries</span></p>
     </div>
   </header>
 
   <nav class="tabs" role="tablist">
-    <button class="tab active" id="tabCompliments" role="tab">Compliments <span class="count-badge" id="countCompliments">0</span></button>
-    <button class="tab" id="tabComplaints" role="tab">Complaints <span class="count-badge" id="countComplaints">0</span></button>
+    <button class="tab active" id="tabCompliments" role="tab">Compliments <span class="count-badge" id="countCompliments"><?php echo $complimentCount; ?></span></button>
+    <button class="tab" id="tabComplaints" role="tab">Complaints <span class="count-badge" id="countComplaints"><?php echo $complaintCount; ?></span></button>
   </nav>
 
   <!-- COMPLIMENTS PANEL -->
   <section class="panel" id="panelCompliments">
     <div class="stat-strip">
-      <div class="stat-cell"><div class="stat-num" id="cTotal">0</div><div class="stat-label">Total Logged</div></div>
-      <div class="stat-cell"><div class="stat-num" id="cRate">0%</div><div class="stat-label">Response Rate</div></div>
-      <div class="stat-cell"><div class="stat-num" id="cThisQ">0</div><div class="stat-label">This Quarter</div></div>
-      <div class="stat-cell"><div class="stat-num" id="cSources">0</div><div class="stat-label">Channels Used</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cTotal"><?php echo $complimentCount; ?></div><div class="stat-label">Total Logged</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cRate"><?php echo $responseRate; ?>%</div><div class="stat-label">Response Rate</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cThisQ"><?php echo count($complimentsThisQ); ?></div><div class="stat-label">This Quarter</div></div>
+      <div class="stat-cell"><div class="stat-num" id="cSources"><?php echo $sourceCount; ?></div><div class="stat-label">Channels Used</div></div>
     </div>
     <div class="toolbar">
       <div class="filter-group" id="cQuarterFilter">
@@ -178,10 +438,10 @@
   <!-- COMPLAINTS PANEL -->
   <section class="panel" id="panelComplaints" style="display:none;">
     <div class="stat-strip">
-      <div class="stat-cell"><div class="stat-num" id="xTotal">0</div><div class="stat-label">Total Logged</div></div>
-      <div class="stat-cell"><div class="stat-num" id="xResolved">0</div><div class="stat-label">Resolved</div></div>
-      <div class="stat-cell"><div class="stat-num" id="xPending">0</div><div class="stat-label">Open / Pending</div></div>
-      <div class="stat-cell"><div class="stat-num" id="xThisQ">0</div><div class="stat-label">This Quarter</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xTotal"><?php echo $complaintCount; ?></div><div class="stat-label">Total Logged</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xResolved"><?php echo count($resolved); ?></div><div class="stat-label">Resolved</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xPending"><?php echo count($pending); ?></div><div class="stat-label">Open / Pending</div></div>
+      <div class="stat-cell"><div class="stat-num" id="xThisQ"><?php echo count($complaintsThisQ); ?></div><div class="stat-label">This Quarter</div></div>
     </div>
     <div class="toolbar">
       <div class="filter-group" id="xQuarterFilter">
@@ -209,7 +469,7 @@
   </section>
 
   <footer>
-    <p>Stored privately to your account &mdash; only visible when you're signed in. Data persists automatically as you add, edit, or remove entries.</p>
+    <p>Stored in MySQL database &mdash; data persists automatically as you add, edit, or remove entries.</p>
   </footer>
 </div>
 
@@ -267,23 +527,23 @@
 <div class="toast" id="toast"></div>
 
 <script>
-const STORAGE_KEY_COMPLIMENTS = 'ncc-register:compliments';
-const STORAGE_KEY_COMPLAINTS = 'ncc-register:complaints';
-const STORAGE_KEY_SEQ = 'ncc-register:sequences';
+// Pass PHP data to JavaScript
+const complimentsData = <?php echo json_encode($compliments); ?>;
+const complaintsData = <?php echo json_encode($complaints); ?>;
 
-let compliments = [];
-let complaints = [];
-let seq = { compliment: 0, complaint: 0 };
-let editingId = null; // for compliments modal
-let editingXId = null; // for complaints modal
+let compliments = complimentsData;
+let complaints = complaintsData;
+let editingId = null;
+let editingXId = null;
 let cFilters = { q: 'all', r: 'all', search: '' };
 let xFilters = { q: 'all', s: 'all', search: '' };
 
-function showToast(msg){
+function showToast(msg, type = 'info'){
   const t = document.getElementById('toast');
   t.textContent = msg;
+  t.className = 'toast ' + type;
   t.classList.add('show');
-  setTimeout(()=>t.classList.remove('show'), 2200);
+  setTimeout(()=>t.classList.remove('show'), 3000);
 }
 
 function quarterFromDate(dateStr){
@@ -301,65 +561,11 @@ function fmtDate(iso){
   return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
 }
 
-function nextRef(type){
-  seq[type] = (seq[type]||0)+1;
-  const prefix = type==='compliment' ? 'CO' : 'CX';
-  return `${prefix}-${String(seq[type]).padStart(3,'0')}`;
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s || '';
+  return div.innerHTML;
 }
-
-async function loadAll(){
-  const statusEl = document.getElementById('storageStatus');
-  try{
-    try{
-      const r = await window.storage.get(STORAGE_KEY_COMPLIMENTS, false);
-      compliments = r && r.value ? JSON.parse(r.value) : [];
-    }catch(e){ compliments = []; }
-    try{
-      const r = await window.storage.get(STORAGE_KEY_COMPLAINTS, false);
-      complaints = r && r.value ? JSON.parse(r.value) : [];
-    }catch(e){ complaints = []; }
-    try{
-      const r = await window.storage.get(STORAGE_KEY_SEQ, false);
-      seq = r && r.value ? JSON.parse(r.value) : { compliment:0, complaint:0 };
-    }catch(e){ seq = { compliment:0, complaint:0 }; }
-    statusEl.textContent = 'Private register — saved to your account';
-  }catch(err){
-    console.error('Load error', err);
-    statusEl.textContent = 'Could not load saved data — starting fresh';
-  }
-  renderCompliments();
-  renderComplaints();
-}
-
-async function persist(key, value){
-  try{
-    const result = await window.storage.set(key, JSON.stringify(value), false);
-    if(!result) console.error('Storage set returned null for', key);
-    return !!result;
-  }catch(err){
-    console.error('Storage error', err);
-    showToast('Could not save — please try again');
-    return false;
-  }
-}
-
-async function saveCompliments(){ await persist(STORAGE_KEY_COMPLIMENTS, compliments); }
-async function saveComplaints(){ await persist(STORAGE_KEY_COMPLAINTS, complaints); }
-async function saveSeq(){ await persist(STORAGE_KEY_SEQ, seq); }
-
-// ---------- TABS ----------
-document.getElementById('tabCompliments').addEventListener('click', ()=>{
-  document.getElementById('tabCompliments').classList.add('active');
-  document.getElementById('tabComplaints').classList.remove('active');
-  document.getElementById('panelCompliments').style.display = '';
-  document.getElementById('panelComplaints').style.display = 'none';
-});
-document.getElementById('tabComplaints').addEventListener('click', ()=>{
-  document.getElementById('tabComplaints').classList.add('active');
-  document.getElementById('tabCompliments').classList.remove('active');
-  document.getElementById('panelComplaints').style.display = '';
-  document.getElementById('panelCompliments').style.display = 'none';
-});
 
 // ---------- COMPLIMENTS RENDER ----------
 function renderCompliments(){
@@ -399,26 +605,20 @@ function renderCompliments(){
     const row = document.createElement('div');
     row.className = 'entry';
     row.innerHTML = `
-      <span class="ref">${d.ref}</span>
+      <span class="ref">${escapeHtml(d.ref)}</span>
       <span class="date">${fmtDate(d.date)}</span>
       <div><p class="client">${escapeHtml(d.client)}</p><p class="quote">${escapeHtml((d.text||'').slice(0,160))}${(d.text||'').length>160?'…':''}</p></div>
-      <span class="source-badge"><span class="dot ${dotClass}"></span>${d.source||'—'}</span>
+      <span class="source-badge"><span class="dot ${dotClass}"></span>${escapeHtml(d.source||'—')}</span>
       <span class="pill ${hasResp?'yes':'no'}">${hasResp?'Responded':'Pending'}</span>
       <span class="row-actions">
-        <button class="icon-btn edit" title="Edit" data-id="${d.id}">✎</button>
-        <button class="icon-btn del" title="Delete" data-id="${d.id}">🗑</button>
+        <button class="icon-btn edit" title="Edit" data-id="${escapeHtml(d.id)}">✎</button>
+        <button class="icon-btn del" title="Delete" data-id="${escapeHtml(d.id)}">🗑</button>
       </span>
     `;
     logEl.appendChild(row);
   });
   logEl.querySelectorAll('.icon-btn.edit').forEach(b=>b.addEventListener('click', ()=>openComplimentModal(b.dataset.id)));
   logEl.querySelectorAll('.icon-btn.del').forEach(b=>b.addEventListener('click', ()=>deleteCompliment(b.dataset.id)));
-}
-
-function escapeHtml(s){
-  const div = document.createElement('div');
-  div.textContent = s || '';
-  return div.innerHTML;
 }
 
 // filters
@@ -442,14 +642,16 @@ function openComplimentModal(id){
   const modal = document.getElementById('cModalOverlay');
   if(id){
     const d = compliments.find(x=>x.id===id);
-    document.getElementById('cModalTitle').textContent = 'Edit Compliment';
-    document.getElementById('f_c_date').value = d.date || '';
-    document.getElementById('f_c_client').value = d.client || '';
-    document.getElementById('f_c_text').value = d.text || '';
-    document.getElementById('f_c_source').value = d.source || 'Facebook';
-    document.getElementById('f_c_forwarded').value = d.forwarded || '';
-    document.getElementById('f_c_response').value = d.response || '';
-    document.getElementById('f_c_response_date').value = d.response_date || '';
+    if (d) {
+      document.getElementById('cModalTitle').textContent = 'Edit Compliment';
+      document.getElementById('f_c_date').value = d.date || '';
+      document.getElementById('f_c_client').value = d.client || '';
+      document.getElementById('f_c_text').value = d.text || '';
+      document.getElementById('f_c_source').value = d.source || 'Facebook';
+      document.getElementById('f_c_forwarded').value = d.forwarded || '';
+      document.getElementById('f_c_response').value = d.response || '';
+      document.getElementById('f_c_response_date').value = d.response_date || '';
+    }
   }else{
     document.getElementById('cModalTitle').textContent = 'New Compliment';
     ['f_c_date','f_c_client','f_c_text','f_c_forwarded','f_c_response','f_c_response_date'].forEach(id=>document.getElementById(id).value='');
@@ -466,35 +668,68 @@ document.getElementById('cSave').addEventListener('click', async ()=>{
   const date = document.getElementById('f_c_date').value;
   const client = document.getElementById('f_c_client').value.trim();
   const text = document.getElementById('f_c_text').value.trim();
-  if(!date || !client || !text){ showToast('Please fill in date, client name, and compliment text'); return; }
-  const record = {
-    id: editingId || 'c_' + Date.now(),
-    ref: editingId ? compliments.find(x=>x.id===editingId).ref : nextRef('compliment'),
-    date, quarter: quarterFromDate(date), client, text,
-    source: document.getElementById('f_c_source').value,
-    forwarded: document.getElementById('f_c_forwarded').value.trim(),
-    response: document.getElementById('f_c_response').value.trim(),
-    response_date: document.getElementById('f_c_response_date').value
-  };
-  if(editingId){
-    const idx = compliments.findIndex(x=>x.id===editingId);
-    compliments[idx] = record;
-  }else{
-    compliments.push(record);
-    await saveSeq();
+  if(!date || !client || !text){ 
+    showToast('Please fill in all required fields: Date, Client Name, and Compliment text.', 'error');
+    return; 
   }
-  await saveCompliments();
-  document.getElementById('cModalOverlay').classList.remove('open');
-  renderCompliments();
-  showToast(editingId ? 'Compliment updated' : 'Compliment added');
+  
+  const formData = new FormData();
+  if(editingId) {
+    formData.append('action', 'edit_compliment');
+    formData.append('id', editingId);
+    const existing = compliments.find(x=>x.id===editingId);
+    if (existing) formData.append('ref', existing.ref);
+  } else {
+    formData.append('action', 'add_compliment');
+  }
+  formData.append('date', date);
+  formData.append('client', client);
+  formData.append('text', text);
+  formData.append('source', document.getElementById('f_c_source').value);
+  formData.append('forwarded', document.getElementById('f_c_forwarded').value.trim());
+  formData.append('response', document.getElementById('f_c_response').value.trim());
+  formData.append('response_date', document.getElementById('f_c_response_date').value);
+
+  try {
+    const response = await fetch(window.location.href, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if(result.success) {
+      document.getElementById('cModalOverlay').classList.remove('open');
+      showToast(result.message, 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      showToast(result.message || 'Error saving entry', 'error');
+    }
+  } catch(e) {
+    showToast('Error saving entry. Please try again.', 'error');
+  }
 });
 
 async function deleteCompliment(id){
   if(!confirm('Delete this compliment entry? This cannot be undone.')) return;
-  compliments = compliments.filter(x=>x.id!==id);
-  await saveCompliments();
-  renderCompliments();
-  showToast('Entry deleted');
+  
+  const formData = new FormData();
+  formData.append('action', 'delete_compliment');
+  formData.append('id', id);
+
+  try {
+    const response = await fetch(window.location.href, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if(result.success) {
+      showToast(result.message, 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      showToast(result.message || 'Error deleting entry', 'error');
+    }
+  } catch(e) {
+    showToast('Error deleting entry. Please try again.', 'error');
+  }
 }
 
 document.getElementById('cExport').addEventListener('click', ()=>exportCsv(compliments,
@@ -538,14 +773,14 @@ function renderComplaints(){
     row.className = 'entry';
     row.style.gridTemplateColumns = '90px 92px 1fr 130px 110px 90px';
     row.innerHTML = `
-      <span class="ref">${d.ref}</span>
+      <span class="ref">${escapeHtml(d.ref)}</span>
       <span class="date">${fmtDate(d.date)}</span>
       <div><p class="client">${escapeHtml(d.client)}</p><p class="quote">${escapeHtml((d.text||'').slice(0,160))}${(d.text||'').length>160?'…':''}</p></div>
       <span class="source-badge">${escapeHtml(d.assignee || '—')}</span>
-      <span class="pill ${statusClass}">${d.status}</span>
+      <span class="pill ${statusClass}">${escapeHtml(d.status)}</span>
       <span class="row-actions">
-        <button class="icon-btn edit" title="Edit" data-id="${d.id}">✎</button>
-        <button class="icon-btn del" title="Delete" data-id="${d.id}">🗑</button>
+        <button class="icon-btn edit" title="Edit" data-id="${escapeHtml(d.id)}">✎</button>
+        <button class="icon-btn del" title="Delete" data-id="${escapeHtml(d.id)}">🗑</button>
       </span>
     `;
     logEl.appendChild(row);
@@ -573,16 +808,18 @@ function openComplaintModal(id){
   const modal = document.getElementById('xModalOverlay');
   if(id){
     const d = complaints.find(x=>x.id===id);
-    document.getElementById('xModalTitle').textContent = 'Edit Complaint';
-    document.getElementById('f_x_date').value = d.date || '';
-    document.getElementById('f_x_client').value = d.client || '';
-    document.getElementById('f_x_text').value = d.text || '';
-    document.getElementById('f_x_source').value = d.source || 'Facebook';
-    document.getElementById('f_x_assignee').value = d.assignee || '';
-    document.getElementById('f_x_response').value = d.response || '';
-    document.getElementById('f_x_action').value = d.action || '';
-    document.getElementById('f_x_status').value = d.status || 'Pending';
-    document.getElementById('f_x_response_date').value = d.response_date || '';
+    if (d) {
+      document.getElementById('xModalTitle').textContent = 'Edit Complaint';
+      document.getElementById('f_x_date').value = d.date || '';
+      document.getElementById('f_x_client').value = d.client || '';
+      document.getElementById('f_x_text').value = d.text || '';
+      document.getElementById('f_x_source').value = d.source || 'Facebook';
+      document.getElementById('f_x_assignee').value = d.assignee || '';
+      document.getElementById('f_x_response').value = d.response || '';
+      document.getElementById('f_x_action').value = d.action || '';
+      document.getElementById('f_x_status').value = d.status || 'Pending';
+      document.getElementById('f_x_response_date').value = d.response_date || '';
+    }
   }else{
     document.getElementById('xModalTitle').textContent = 'New Complaint';
     ['f_x_date','f_x_client','f_x_text','f_x_assignee','f_x_response','f_x_action','f_x_response_date'].forEach(id=>document.getElementById(id).value='');
@@ -600,37 +837,70 @@ document.getElementById('xSave').addEventListener('click', async ()=>{
   const date = document.getElementById('f_x_date').value;
   const client = document.getElementById('f_x_client').value.trim();
   const text = document.getElementById('f_x_text').value.trim();
-  if(!date || !client || !text){ showToast('Please fill in date, client name, and issue description'); return; }
-  const record = {
-    id: editingXId || 'x_' + Date.now(),
-    ref: editingXId ? complaints.find(x=>x.id===editingXId).ref : nextRef('complaint'),
-    date, quarter: quarterFromDate(date), client, text,
-    source: document.getElementById('f_x_source').value,
-    assignee: document.getElementById('f_x_assignee').value.trim(),
-    response: document.getElementById('f_x_response').value.trim(),
-    action: document.getElementById('f_x_action').value.trim(),
-    status: document.getElementById('f_x_status').value,
-    response_date: document.getElementById('f_x_response_date').value
-  };
-  if(editingXId){
-    const idx = complaints.findIndex(x=>x.id===editingXId);
-    complaints[idx] = record;
-  }else{
-    complaints.push(record);
-    await saveSeq();
+  if(!date || !client || !text){ 
+    showToast('Please fill in all required fields: Date, Client Name, and Issue description.', 'error');
+    return; 
   }
-  await saveComplaints();
-  document.getElementById('xModalOverlay').classList.remove('open');
-  renderComplaints();
-  showToast(editingXId ? 'Complaint updated' : 'Complaint added');
+  
+  const formData = new FormData();
+  if(editingXId) {
+    formData.append('action', 'edit_complaint');
+    formData.append('id', editingXId);
+    const existing = complaints.find(x=>x.id===editingXId);
+    if (existing) formData.append('ref', existing.ref);
+  } else {
+    formData.append('action', 'add_complaint');
+  }
+  formData.append('date', date);
+  formData.append('client', client);
+  formData.append('text', text);
+  formData.append('source', document.getElementById('f_x_source').value);
+  formData.append('assignee', document.getElementById('f_x_assignee').value.trim());
+  formData.append('response', document.getElementById('f_x_response').value.trim());
+  formData.append('action_item', document.getElementById('f_x_action').value.trim());
+  formData.append('status', document.getElementById('f_x_status').value);
+  formData.append('response_date', document.getElementById('f_x_response_date').value);
+
+  try {
+    const response = await fetch(window.location.href, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if(result.success) {
+      document.getElementById('xModalOverlay').classList.remove('open');
+      showToast(result.message, 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      showToast(result.message || 'Error saving entry', 'error');
+    }
+  } catch(e) {
+    showToast('Error saving entry. Please try again.', 'error');
+  }
 });
 
 async function deleteComplaint(id){
   if(!confirm('Delete this complaint entry? This cannot be undone.')) return;
-  complaints = complaints.filter(x=>x.id!==id);
-  await saveComplaints();
-  renderComplaints();
-  showToast('Entry deleted');
+  
+  const formData = new FormData();
+  formData.append('action', 'delete_complaint');
+  formData.append('id', id);
+
+  try {
+    const response = await fetch(window.location.href, {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if(result.success) {
+      showToast(result.message, 'success');
+      setTimeout(() => window.location.reload(), 1500);
+    } else {
+      showToast(result.message || 'Error deleting entry', 'error');
+    }
+  } catch(e) {
+    showToast('Error deleting entry. Please try again.', 'error');
+  }
 }
 
 document.getElementById('xExport').addEventListener('click', ()=>exportCsv(complaints,
@@ -639,7 +909,7 @@ document.getElementById('xExport').addEventListener('click', ()=>exportCsv(compl
   'complaints.csv'));
 
 function exportCsv(rows, fields, headers, filename){
-  if(rows.length===0){ showToast('Nothing to export yet'); return; }
+  if(rows.length===0){ showToast('Nothing to export yet', 'info'); return; }
   const csvRows = [headers.join(',')];
   rows.forEach(r=>{
     const line = fields.map(f=>{
@@ -654,10 +924,26 @@ function exportCsv(rows, fields, headers, filename){
   a.href = url; a.download = filename;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  showToast('CSV downloaded');
+  showToast('CSV downloaded successfully!', 'success');
 }
 
-loadAll();
+// ---------- TABS ----------
+document.getElementById('tabCompliments').addEventListener('click', ()=>{
+  document.getElementById('tabCompliments').classList.add('active');
+  document.getElementById('tabComplaints').classList.remove('active');
+  document.getElementById('panelCompliments').style.display = '';
+  document.getElementById('panelComplaints').style.display = 'none';
+});
+document.getElementById('tabComplaints').addEventListener('click', ()=>{
+  document.getElementById('tabComplaints').classList.add('active');
+  document.getElementById('tabCompliments').classList.remove('active');
+  document.getElementById('panelComplaints').style.display = '';
+  document.getElementById('panelCompliments').style.display = 'none';
+});
+
+// Initial render
+renderCompliments();
+renderComplaints();
 </script>
 </body>
 </html>
